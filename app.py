@@ -3,11 +3,12 @@ import pandas as pd
 import numpy as np
 import pickle
 
+# Set page title
 st.set_page_config(page_title="Seattle Weather Predictor", layout="centered")
 
+# Load the saved model and encoder
 @st.cache_resource
 def load_assets():
-    # Loading the best model and the label encoder
     with open('seattle_weather_best_model.pkl', 'rb') as f:
         model = pickle.load(f)
     with open('encoder.pkl', 'rb') as f:
@@ -16,31 +17,44 @@ def load_assets():
 
 try:
     model, encoder = load_assets()
-except Exception as e:
-    st.error(f"Error loading model assets: {e}")
+except FileNotFoundError:
+    st.error("Model files not found! Please ensure 'seattle_weather_best_model.pkl' and 'encoder.pkl' are in the same folder.")
     st.stop()
 
+# App Header
 st.title("🌧️ Seattle Weather Prediction App")
-st.markdown("Enter weather details below to predict the conditions in Seattle.")
+st.markdown("Enter the weather parameters below to predict the condition.")
 
-# User inputs
-col1, col2 = st.columns(2)
-with col1:
-    precipitation = st.number_input("Precipitation (mm)", 0.0, 100.0, 0.0)
-    temp_max = st.number_input("Max Temperature (°C)", -20.0, 50.0, 15.0)
-with col2:
-    temp_min = st.number_input("Min Temperature (°C)", -30.0, 40.0, 5.0)
-    wind = st.number_input("Wind Speed (m/s)", 0.0, 25.0, 3.0)
+# Sidebar for Input
+st.sidebar.header("Input Weather Parameters")
+precipitation = st.sidebar.slider("Precipitation (mm)", 0.0, 60.0, 5.0)
+temp_max = st.sidebar.slider("Max Temperature (°C)", -5.0, 45.0, 15.0)
+temp_min = st.sidebar.slider("Min Temperature (°C)", -10.0, 30.0, 8.0)
+wind = st.sidebar.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0)
 
+# Prediction Logic
 if st.button("Predict Weather"):
-    # Features must match the training order: precipitation, temp_max, temp_min, wind
+    # Prepare data for model
     features = np.array([[precipitation, temp_max, temp_min, wind]])
-    prediction = model.predict(features)
-    weather_type = encoder.inverse_transform(prediction)[0]
     
-    st.success(f"The predicted weather is: **{weather_type.upper()}**")
+    # Make prediction
+    prediction_numeric = model.predict(features)
+    prediction_text = encoder.inverse_transform(prediction_numeric)[0]
     
-    # Visual cues
-    if weather_type == 'sun': st.write("☀️ Clear skies ahead!")
-    elif weather_type == 'rain': st.write("☔ Grab an umbrella!")
-    elif weather_type == 'snow': st.write("❄️ Stay warm, it's snowing!")
+    # Visual feedback based on result
+    st.subheader(f"Prediction: {prediction_text.capitalize()}")
+    
+    if prediction_text == "sun":
+        st.write("☀️ It looks like a clear day!")
+    elif prediction_text == "rain":
+        st.write("☔ Don't forget your umbrella!")
+    elif prediction_text == "snow":
+        st.write("❄️ Stay warm, it's snowing!")
+    elif prediction_text == "fog":
+        st.write("🌫️ Visibility might be low.")
+    else:
+        st.write("☁️ Expect some light drizzle.")
+
+# Show data summary
+if st.checkbox("Show historical data statistics"):
+    st.write("The model was trained on Seattle weather data featuring precipitation, temperature extremes, and wind speeds.")
